@@ -1,7 +1,6 @@
 import os
 import select
 import sys
-import time
 
 if os.name == 'nt':
     import msvcrt
@@ -26,11 +25,11 @@ class Client:
         result_list = self.__stub.sendMsg(
             cyberdog_app_pb2.SendRequest(
                 nameCode=name_code,
-                params=params), 0.1)
-        # print('msg has sent')
+                params=params))
+        resp = list(result_list)
 
 class Teleop:
-    def __init__(self, acc=[1.0, 0.0, 1.0], freq=10.0, max_vel=[0.5, 0.0, 0.2]):
+    def __init__(self, acc=[0.1, 0.0, 1.0], freq=10.0, max_vel=[1.0, 0.0, 1.5]):
         self.__vel = [0.0, 0.0, 0.0]
         self.__acc = acc
         self.__freq = freq
@@ -41,11 +40,19 @@ class Teleop:
         print('Teleop is ready')
 
     def updateVel(self, delta_vel: list):
+        updated = False
         for i in range(0, 3):
+            if abs(delta_vel[i]) > 0.00001:
+                updated = True
+            else:
+                continue 
             self.__vel[i] += delta_vel[i]
             if self.__vel[i] > self.__max_vel[i]:
                 self.__vel[i] = self.__max_vel[i]
-        print('vel:', self.__vel)
+            elif self.__vel[i] < -self.__max_vel[i]:
+                self.__vel[i] = -self.__max_vel[i]
+        if updated:
+            print('vel:', self.__vel)
         return self.__vel
 
     def __getKey(self, settings):
@@ -85,12 +92,12 @@ class ProtoEncoder:
         cmd['cmd_type'] = 1
         cmd['cmd_source'] = 3
         cmd['value'] = 0
-        cmd['step_height'] = [0.06,0.06]
+        cmd['step_height'] = [0.06, 0.06]
         cmd['vel_des'] = vel
         return json.dumps(cmd)
 
 if __name__ == '__main__':
-    if len(sys.argv) == 0:
+    if len(sys.argv) == 1:
         print('Please input gRPC server IP')
         exit()
     grpc_client = Client(sys.argv[1])
@@ -102,6 +109,8 @@ if __name__ == '__main__':
             print('exit')
             exit()
         vel = teleop.updateVel(delta_vel)
+        if abs(vel[0]) < 0.01 and abs(vel[2]) < 0.01:
+            continue
         json_str = encoder.encodeVel(vel)
         grpc_client.sendMsg(1002, json_str)
         
