@@ -96,6 +96,15 @@ class ProtoEncoder:
         cmd['vel_des'] = vel
         return json.dumps(cmd)
 
+    def stopSignal(self):
+        cmd = {}
+        cmd['motion_id'] = 303
+        cmd['cmd_type'] = 2
+        cmd['cmd_source'] = 3
+        cmd['value'] = 0
+        cmd['step_height'] = [0.0, 0.0]
+        cmd['vel_des'] = [0.0, 0.0, 0.0]
+
 if __name__ == '__main__':
     if len(sys.argv) == 1:
         print('Please input gRPC server IP')
@@ -103,14 +112,22 @@ if __name__ == '__main__':
     grpc_client = Client(sys.argv[1])
     teleop = Teleop()
     encoder = ProtoEncoder()
+    stop_signal = False
     while True:
         result, delta_vel = teleop.getVelFromKey()
         if result == 0:
             print('exit')
-            exit()
+            break
         vel = teleop.updateVel(delta_vel)
         if abs(vel[0]) < 0.01 and abs(vel[2]) < 0.01:
-            continue
-        json_str = encoder.encodeVel(vel)
+            if stop_signal:
+                continue
+            stop_signal = True
+        else:
+            stop_signal = False
+        if stop_signal:
+            json_str = encoder.stopSignal()
+        else:
+            json_str = encoder.encodeVel(vel)
         grpc_client.sendMsg(1002, json_str)
-        
+
