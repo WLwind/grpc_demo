@@ -104,6 +104,7 @@ class ProtoEncoder:
         cmd['value'] = 0
         cmd['step_height'] = [0.0, 0.0]
         cmd['vel_des'] = [0.0, 0.0, 0.0]
+        return json.dumps(cmd)
 
 if __name__ == '__main__':
     if len(sys.argv) == 1:
